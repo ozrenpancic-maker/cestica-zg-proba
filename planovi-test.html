@@ -10,6 +10,16 @@ label{display:inline-block;margin:4px 10px 4px 0}input{font:inherit;padding:6px;
 button{font:inherit;padding:8px 14px;margin:4px 4px 4px 0}
 pre{background:var(--box);padding:10px;white-space:pre-wrap;word-break:break-word;font-size:12px;max-height:60vh;overflow:auto}
 small{color:var(--mut)} img{max-width:100%;border:1px solid var(--line);margin-top:6px}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-top:10px}
+.card{border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--box);min-width:0}
+.card img{display:block;width:100%;height:auto;margin:0 0 6px;cursor:zoom-in;background:#fff}
+.card code{font-size:11.5px;overflow-wrap:anywhere}.card label{display:block;margin:6px 0 0;font-size:13px}
+.card input,.card select,.card textarea{width:100%;box-sizing:border-box;font:inherit;font-size:14px;padding:5px}
+.card .st{font-size:12px;font-weight:600}.ok{color:var(--ok)}.bad{color:var(--bad)}
+#lb{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;flex-direction:column;z-index:9}
+#lb .bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:8px;color:#fff}
+#lb .sc{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}#lb img{display:block;max-width:none;margin:0;border:0;background:#fff}
 </style></head><body>
 <h1>Čestica HR: test karata prostornih planova</h1>
 <p><small>Provjerava, iz tvog preglednika, odgovaraju li službeni servisi koje aplikacija koristi za karte UPU-a i GUP-a. Ništa se ne sprema. Rezultat kopiraj i pošalji.</small></p>
@@ -23,6 +33,14 @@ small{color:var(--mut)} img{max-width:100%;border:1px solid var(--line);margin-t
 <label>Lat <input id="zl" value="45.8131"></label><label>Lon <input id="zo" value="15.9772"></label>
 <label>Servis <input id="zs" value="PPRasterZ21_Public" style="width:13em"></label><br>
 <button id="ispu">Pokreni ISPU test</button>
+
+<h2>3. Pregled i potvrda kartografskih listova (ISPU)</h2>
+<p><small>Za točku iz odjeljka 2 prikazuje sve listove čiji okvir obuhvaća točku: šifru, naziv iz servisa i minijaturu cijelog lista. Dodirni sliku za povećanje i pročitaj naslov i legendu na listu. Upiši naslov i vrstu samo ako su na listu čitljivi; inače ostavi „nepotvrđeno”. Aplikacija ne zaključuje značenje šifre iz njezina naziva. Unosi se pamte samo u ovom pregledniku dok ne izvezeš JSON.</small></p>
+<label>Tvoje ime ili oznaka (provjerio) <input id="rvWho" style="width:14em"></label><br>
+<button id="rv">Pregledaj listove</button><button id="rvJson">Izvezi potvrđene u JSON</button><button id="rvCopy">Kopiraj JSON</button><button id="rvClear">Obriši unose</button>
+<p id="rvSum"><small>—</small></p>
+<div id="rvGrid" class="grid"></div>
+<div id="lb" role="dialog" aria-modal="true" aria-label="Povećani list"><div class="bar"><b id="lbT" style="flex:1;min-width:0;overflow-wrap:anywhere"></b><button data-z="1">Prilagodi</button><button data-z="2">×2</button><button data-z="4">×4</button><button id="lbX">Zatvori</button></div><div class="sc"><img id="lbI" alt="Povećani list"></div></div>
 
 <h2>Rezultat</h2>
 <button id="cp">Kopiraj rezultat</button>
@@ -95,4 +113,80 @@ document.getElementById("ispu").onclick=async()=>{
   P("\nKraj testa.");
 };
 document.getElementById("cp").onclick=()=>{try{navigator.clipboard.writeText(out.textContent).then(()=>alert("Kopirano"));}catch(e){alert("Kopiranje nije uspjelo; označi tekst ručno.");}};
+</script>
+<script>
+// ---- pregled i potvrda listova ISPU-a ----
+// Službeni popis kartografskih prikaza GUP-a Grada Zagreba (Odluka o GUP-u, čl. 5. st. 1. t. B; prikaz izmjena 2025.).
+// Korisnik ga bira tek kad na listu pročita naslov; šifra se ne tumači.
+const SLUZBENI={"GUP Grada Zagreba":[["1","1. Korištenje i namjena prostora","namjena"],["2","2. Mreža gospodarskih i društvenih djelatnosti","ostalo"],["3a","3a. Promet","promet"],["3b","3b. Energetski sustav, pošta i telekomunikacije","infrastruktura"],["3c","3c. Vodnogospodarski sustav i postupanje s otpadom","infrastruktura"],["4a","4a. Urbana pravila","urbana_pravila"],["4b","4b. Procedure urbano-prostornog uređenja","ostalo"],["4c","4c. Zaštićeni i evidentirani dijelovi prirode","zastita"],["4d","4d. Nepokretna kulturna dobra","zastita"]]};
+const SLUZBENI_IZVOR="Odluka o GUP-u Grada Zagreba, čl. 5. st. 1. t. B (popis kartografskih prikaza)";
+const PLANOVI=["","GUP Grada Zagreba","GUP Sesvete","Prostorni plan Grada Zagreba","drugi plan"];
+const VRSTE=[["","— nepotvrđeno —"],["namjena","korištenje i namjena"],["urbana_pravila","urbana pravila"],["promet","promet"],["infrastruktura","komunalna i energetska infrastruktura"],["zastita","zaštita (priroda, baština, uvjeti)"],["ostalo","ostalo"]];
+const RV={host:null,svc:null,tocka:null,items:[]};
+const rvKey=n=>"rvIspu:"+n, rvLoad=n=>{try{return JSON.parse(localStorage.getItem(rvKey(n))||"null")||{}}catch(e){return {}}}, rvSave=(n,o)=>{try{localStorage.setItem(rvKey(n),JSON.stringify(o))}catch(e){}};
+try{document.getElementById("rvWho").value=localStorage.getItem("rvWho")||""}catch(e){}
+document.getElementById("rvWho").onchange=e=>{try{localStorage.setItem("rvWho",e.target.value)}catch(err){}};
+const dan=()=>new Date().toISOString().slice(0,10);
+function ime(n){const m=String(n).match(/^HR_ISPU_([A-Z]+?)(\d*)_(\d+)_R(\d+)_(.+)$/i); return m?{plan:m[1].toUpperCase()+m[2]+"_"+m[3],vrsta_plana:m[1].toUpperCase(),revizija:"R"+m[4],sifra:m[5]}:{plan:null,vrsta_plana:null,revizija:null,sifra:null};}
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function gm(name,bb,W,crs){const kx=Math.cos((bb[1]+bb[3])/2*Math.PI/180), H=Math.max(100,Math.min(4000,Math.round(W*(bb[3]-bb[1])/((bb[2]-bb[0])*kx))));
+  return RV.host+"?"+new URLSearchParams({SERVICE:"WMS",VERSION:"1.3.0",REQUEST:"GetMap",LAYERS:name,STYLES:"",CRS:"CRS:84",BBOX:bb.join(","),WIDTH:String(W),HEIGHT:String(H),FORMAT:"image/png",TRANSPARENT:"FALSE"});}
+function rvStatus(o){return o.naslov&&o.naslov.trim()&&o.vrsta?"potvrđeno":"nepotvrđeno"}
+function rvSumUpd(){const n=RV.items.length, c=RV.items.filter(it=>rvStatus(rvLoad(it.name))==="potvrđeno").length; document.getElementById("rvSum").innerHTML=n?`<small>${n} listova · potvrđeno ${c} · nepotvrđeno ${n-c}</small>`:"<small>—</small>";}
+function rvCard(it,i){
+  const o=rvLoad(it.name), I=ime(it.name), d=document.createElement("div"); d.className="card";
+  const opts=(o.plan_naziv&&SLUZBENI[o.plan_naziv])||null;
+  d.innerHTML=`<img loading="lazy" src="${esc(gm(it.name,it.bb,360))}" alt="Minijatura lista ${esc(it.name)}" data-i="${i}">
+   <code>${esc(it.name)}</code><br><small>Title u servisu: ${esc(it.title||"–")}${it.parent?" · nadređeni: "+esc(it.parent):""}</small><br>
+   <small>plan ${esc(I.plan||"?")} · revizija ${esc(I.revizija||"?")} · šifra ${esc(I.sifra||"?")}</small>
+   <label>Plan (prema listu)<select data-f="plan_naziv">${PLANOVI.map(p=>`<option${p===(o.plan_naziv||"")?" selected":""} value="${esc(p)}">${p?esc(p):"— nepotvrđeno —"}</option>`).join("")}</select></label>
+   ${opts?`<label>Službeni kartografski prikaz<select data-f="sluzbeni_prikaz"><option value="">— nije odabrano —</option>${opts.map(x=>`<option value="${x[0]}"${x[0]===o.sluzbeni_prikaz?" selected":""}>${esc(x[1])}</option>`).join("")}<option value="nema"${o.sluzbeni_prikaz==="nema"?" selected":""}>ništa od navedenoga</option></select></label>`:""}
+   <label>Naslov na listu (prepiši ili ostavi prazno)<input data-f="naslov" value="${esc(o.naslov||"")}"></label>
+   <label>Vrsta karte<select data-f="vrsta">${VRSTE.map(v=>`<option value="${v[0]}"${v[0]===(o.vrsta||"")?" selected":""}>${esc(v[1])}</option>`).join("")}</select></label>
+   <label>Napomena<input data-f="napomena" value="${esc(o.napomena||"")}"></label>
+   <span class="st ${rvStatus(o)==="potvrđeno"?"ok":"bad"}">${rvStatus(o)}</span>`;
+  d.querySelector("img").onclick=()=>lbOpen(it);
+  d.addEventListener("change",e=>{const f=e.target.dataset.f; if(!f) return; const x=rvLoad(it.name); x[f]=e.target.value;
+    if(f==="sluzbeni_prikaz"){const S=(SLUZBENI[x.plan_naziv]||[]).find(y=>y[0]===e.target.value); if(S){x.naslov=S[1]; x.vrsta=S[2]; x.izvor_naziva=SLUZBENI_IZVOR;} else delete x.izvor_naziva;}
+    if(f==="naslov"&&!(SLUZBENI[x.plan_naziv]||[]).some(y=>y[1]===x.naslov)) delete x.izvor_naziva;
+    if(f==="plan_naziv"){delete x.sluzbeni_prikaz;}
+    x.datum_provjere=dan(); rvSave(it.name,x);
+    if(f==="plan_naziv"||f==="sluzbeni_prikaz"){if(d.isConnected) d.replaceWith(rvCard(it,i));}
+    else{const st=d.querySelector(".st"), v=rvStatus(x); st.textContent=v; st.className="st "+(v==="potvrđeno"?"ok":"bad");}
+    rvSumUpd();});
+  return d;
+}
+let LB=null;
+function lbOpen(it){LB=it; document.getElementById("lbT").textContent=it.name+(it.title&&it.title!==it.name?" · "+it.title:""); const im=document.getElementById("lbI"); im.src=gm(it.name,it.bb,2400); im.style.width="100%"; document.getElementById("lb").style.display="flex";}
+document.querySelectorAll("#lb [data-z]").forEach(b=>b.onclick=()=>{document.getElementById("lbI").style.width=(+b.dataset.z*100)+"%";});
+document.getElementById("lbX").onclick=()=>{document.getElementById("lb").style.display="none";};
+document.addEventListener("keydown",e=>{if(e.key==="Escape") document.getElementById("lb").style.display="none";});
+document.getElementById("rv").onclick=async()=>{
+  start("Pregled listova ISPU"); const lat=+document.getElementById("zl").value, lon=+document.getElementById("zo").value, svc=document.getElementById("zs").value.trim().replace(/[^\w]/g,"");
+  let xml=null; for(const host of ["gis2","gis1","gis3","gis4"]){const base="https://"+host+".mgipu.hr/srv1/"+svc+"/wms"; xml=await get(base+"?service=WMS&request=GetCapabilities&version=1.3.0","text"); if(xml&&/<WMS_Capabilities/.test(xml)){RV.host=base; break;} xml=null;}
+  const g=document.getElementById("rvGrid"); g.innerHTML="";
+  if(!xml){P("GetCapabilities nije dostupan."); RV.items=[]; rvSumUpd(); return;}
+  RV.svc=svc; RV.tocka={lat,lon};
+  const doc=new DOMParser().parseFromString(xml,"text/xml"), items=[];
+  for(const L of doc.getElementsByTagName("Layer")){const n=L.querySelector(":scope > Name"); if(!n||L.querySelector(":scope > Layer")) continue; const b=L.querySelector(":scope > EX_GeographicBoundingBox"); if(!b) continue;
+    const v=k=>+((b.querySelector(k)||{}).textContent), bb=[v("westBoundLongitude"),v("southBoundLatitude"),v("eastBoundLongitude"),v("northBoundLatitude")];
+    if(!(lon>=bb[0]&&lon<=bb[2]&&lat>=bb[1]&&lat<=bb[3])) continue;
+    const par=L.parentElement&&L.parentElement.querySelector(":scope > Title");
+    items.push({name:n.textContent.trim(),title:((L.querySelector(":scope > Title")||{}).textContent||"").trim(),abs:((L.querySelector(":scope > Abstract")||{}).textContent||"").trim(),parent:par?par.textContent.trim():"",bb});}
+  items.sort((a,b)=>a.name.localeCompare(b.name,"hr",{numeric:true})); RV.items=items;
+  P("Poslužitelj: "+RV.host+"\nListova na točki: "+items.length); for(const it of items) P("  "+it.name+" | "+it.title+(it.abs?" | "+it.abs:"")+(it.parent?" | nadređeni: "+it.parent:""));
+  items.forEach((it,i)=>g.appendChild(rvCard(it,i))); rvSumUpd();
+};
+function rvExport(){
+  const who=document.getElementById("rvWho").value.trim();
+  const zapisi=RV.items.map(it=>{const o=rvLoad(it.name), I=ime(it.name), st=rvStatus(o);
+    return {sloj:it.name,plan:I.plan,vrsta_plana:I.vrsta_plana,revizija:I.revizija,sifra:I.sifra,title_u_servisu:it.title||null,nadredeni_sloj:it.parent||null,
+      plan_naziv:o.plan_naziv||null,sluzbeni_prikaz:o.sluzbeni_prikaz&&o.sluzbeni_prikaz!=="nema"?o.sluzbeni_prikaz:null,naslov:st==="potvrđeno"?o.naslov.trim():null,vrsta:st==="potvrđeno"?o.vrsta:null,status:st,
+      izvor:st==="potvrđeno"?("naslov pročitan na cijelom listu (ISPU WMS GetMap)"+(o.izvor_naziva?"; naziv iz: "+o.izvor_naziva:"")):null,datum_provjere:st==="potvrđeno"?(o.datum_provjere||dan()):null,provjerio:who||null,napomena:o.napomena||null};});
+  return {verzija_sheme:"1.0",vrsta:"ISPU šifre kartografskih prikaza",servis:RV.svc,posluzitelj:RV.host,tocka:RV.tocka,izvezeno:new Date().toISOString(),potvrdeno:zapisi.filter(z=>z.status==="potvrđeno").length,zapisi};
+}
+document.getElementById("rvJson").onclick=()=>{if(!RV.items.length){alert("Prvo pokreni pregled listova.");return;} const j=JSON.stringify(rvExport(),null,1), a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([j],{type:"application/json"})); a.download="ispu_sifre_"+(RV.svc||"wms")+"_"+dan()+".json"; document.body.appendChild(a); a.click(); a.remove();};
+document.getElementById("rvCopy").onclick=()=>{if(!RV.items.length){alert("Prvo pokreni pregled listova.");return;} const j=JSON.stringify(rvExport(),null,1); try{navigator.clipboard.writeText(j).then(()=>alert("JSON kopiran"),()=>{out.textContent=j;alert("Kopiranje nije uspjelo; JSON je u okviru Rezultat.");});}catch(e){out.textContent=j;}};
+document.getElementById("rvClear").onclick=()=>{if(!confirm("Obrisati sve unose za prikazane listove?")) return; for(const it of RV.items){try{localStorage.removeItem(rvKey(it.name))}catch(e){}} const g=document.getElementById("rvGrid"); g.innerHTML=""; RV.items.forEach((it,i)=>g.appendChild(rvCard(it,i))); rvSumUpd();};
 </script></body></html>
