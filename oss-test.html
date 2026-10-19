@@ -34,6 +34,12 @@ document.getElementById("go").onclick=async()=>{log=[];P("Početak: "+new Date()
   const lr=pi&&pi.lrUnit;
   if(lr&&lr.lrUnitNumber)await get("/oss/public/lr/lr-unit?lrUnitNumber="+encodeURIComponent(lr.lrUnitNumber)+"&mainBookId="+encodeURIComponent(lr.mainBookId)+"&historicalOverview=false");
   else P("\n(nema podatka o ZK ulošku u parcel-info – ZK dio se ne može testirati)");
+  // 2) katastarski sloj karte (isti koji koriste OSS i Geoportal) izravno iz preglednika
+  const wms="https://wms1-gs-oss.uredjenazemlja.hr/ows2-m/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&FORMAT=image/png&TRANSPARENT=true&QUERY_LAYERS=oss:BZP_CESTICE&LAYERS=oss:BZP_CESTICE&STYLES=&INFO_FORMAT=application/json&I=50&J=50&CRS=EPSG:3765&WIDTH=101&HEIGHT=101&BBOX=351524.99,4991131.17,351534.99,4991141.17&FEATURE_COUNT=1";
+  P("\nGET (karta čestica) "+wms.slice(0,60)+"…");
+  try{const r=await fetch(wms,{mode:"cors",credentials:"omit",signal:AbortSignal.timeout(15000)}); P((r.ok?"✔ ":"✘ ")+"HTTP "+r.status+" · CORS: "+(r.headers.get("access-control-allow-origin")||"(zaglavlje nije čitljivo)"));
+    const j=await r.json(); const p=j.features&&j.features[0]&&j.features[0].properties||{}; P("CESTICA_ID "+p.CESTICA_ID+" · broj "+p.BROJ_CESTICE+" · grafička "+p.POVRSINA_GRAFICKA+" · upisana u katastru "+p.POVRSINA_ATRIBUTNA);}
+  catch(e){P("✘ "+e.name+": "+e.message+"  (najčešće CORS blokada)");}
   P("\nKraj testa.");};
 document.getElementById("cp").onclick=()=>{try{navigator.clipboard.writeText(out.textContent).then(()=>alert("Kopirano"));}catch(e){alert("Kopiranje nije uspjelo; označi tekst ručno.");}};
 </script></body></html>
