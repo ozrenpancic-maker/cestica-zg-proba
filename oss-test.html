@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OSS test</title>
+<style>
+:root{--bg:#fff;--fg:#1d1d1b;--mut:#666;--ok:#1e7a46;--bad:#b3261e;--box:#f4f4f2}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--fg:#eee;--mut:#aaa;--ok:#5fcf8e;--bad:#ff8a80;--box:#24241f}}
+body{background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,sans-serif;margin:0;padding:16px;max-width:760px}
+h1{font-size:1.25rem}input{font:inherit;padding:8px;width:9em}button{font:inherit;padding:8px 14px;margin:4px 4px 4px 0}
+pre{background:var(--box);padding:10px;white-space:pre-wrap;word-break:break-word;font-size:12px;max-height:60vh;overflow:auto}
+.ok{color:var(--ok)}.bad{color:var(--bad)}small{color:var(--mut)}
+</style></head><body>
+<h1>Čestica HR – test dohvaćanja iz OSS-a</h1>
+<p><small>Provjerava smije li aplikacija s ove adrese čitati javne podatke OSS-a (katastar i zemljišna knjiga). Imena i osobni podaci u rezultatu su skriveni.</small></p>
+<label>ID čestice (CESTICA_ID) <input id="pid" value="19311109"></label>
+<small>(735/58, K.O. Kornić)</small><br>
+<button id="go">Pokreni test</button><button id="cp">Kopiraj rezultat</button>
+<pre id="out">—</pre>
+<script>
+const OSS="https://oss.uredjenazemlja.hr";
+const out=document.getElementById("out");let log=[];
+const P=s=>{log.push(s);out.textContent=log.join("\n");};
+const HIDE=/name|ime|prezime|oib|adres|address|owner|possessor|osob|person|street|ulica|birth|rod/i;
+function red(v,k){if(k&&HIDE.test(k)&&typeof v!=="number")return typeof v==="object"&&v?(Array.isArray(v)?v.map(x=>red(x)):Object.fromEntries(Object.keys(v).map(kk=>[kk,red(v[kk],kk)]))):"[skriveno]";
+  if(Array.isArray(v))return v.slice(0,30).map(x=>red(x));if(v&&typeof v==="object")return Object.fromEntries(Object.keys(v).map(kk=>[kk,red(v[kk],kk)]));return v;}
+async function get(path){const u=OSS+path;P("\nGET "+u);
+  try{const r=await fetch(u,{mode:"cors",credentials:"omit",signal:AbortSignal.timeout(15000)});
+    P((r.ok?"✔ ":"✘ ")+"HTTP "+r.status+" · "+(r.headers.get("content-type")||"?"));
+    const t=await r.text();let j=null;try{j=JSON.parse(t)}catch(e){P("nije JSON: "+t.slice(0,200));}
+    if(j)P(JSON.stringify(red(j),null,1).slice(0,6000));return j;
+  }catch(e){P("✘ "+e.name+": "+e.message+"  (najčešće CORS blokada ili mreža)");return null;}}
+document.getElementById("go").onclick=async()=>{log=[];P("Početak: "+new Date().toLocaleString("hr-HR")+"\nPreglednik: "+navigator.userAgent);
+  const id=document.getElementById("pid").value.trim();
+  const pi=await get("/oss/public/cad/parcel-info?parcelId="+encodeURIComponent(id));
+  const lr=pi&&pi.lrUnit;
+  if(lr&&lr.lrUnitNumber)await get("/oss/public/lr/lr-unit?lrUnitNumber="+encodeURIComponent(lr.lrUnitNumber)+"&mainBookId="+encodeURIComponent(lr.mainBookId)+"&historicalOverview=false");
+  else P("\n(nema podatka o ZK ulošku u parcel-info – ZK dio se ne može testirati)");
+  P("\nKraj testa.");};
+document.getElementById("cp").onclick=()=>{try{navigator.clipboard.writeText(out.textContent).then(()=>alert("Kopirano"));}catch(e){alert("Kopiranje nije uspjelo; označi tekst ručno.");}};
+</script></body></html>
