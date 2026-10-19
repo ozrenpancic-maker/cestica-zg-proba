@@ -42,6 +42,12 @@ small{color:var(--mut)} img{max-width:100%;border:1px solid var(--line);margin-t
 <div id="rvGrid" class="grid"></div>
 <div id="lb" role="dialog" aria-modal="true" aria-label="Povećani list"><div class="bar"><b id="lbT" style="flex:1;min-width:0;overflow-wrap:anywhere"></b><button data-z="1">Prilagodi</button><button data-z="2">×2</button><button data-z="4">×4</button><button id="lbX">Zatvori</button></div><div class="sc"><img id="lbI" alt="Povećani list"></div></div>
 
+<h2>4. Gradski WMS GUP-a Zagreba (geoportal.zagreb.hr)</h2>
+<p><small>Provjerava službeni gradski servis GUP-a i GUP-a Sesveta (registar NIPP, izvor 0220): popis slojeva s nazivima i izrez oko točke iz odjeljka 2. Ako slojevi imaju opisne nazive (npr. „Korištenje i namjena prostora”), aplikacija za Zagreb može koristiti taj servis umjesto šifri ISPU-a.</small></p>
+<label>Adresa servisa <input id="gzU" value="https://geoportal.zagreb.hr/Public/GUPZagreb_Public/MapServer" style="width:100%;max-width:520px"></label><br>
+<button id="gz">Pokreni test gradskog servisa</button>
+<div id="gzGrid" class="grid"></div>
+
 <h2>Rezultat</h2>
 <button id="cp">Kopiraj rezultat</button>
 <pre id="out">—</pre>
@@ -189,4 +195,33 @@ document.getElementById("rvJson").onclick=()=>{if(!RV.items.length){alert("Prvo 
   a.href=URL.createObjectURL(new Blob([j],{type:"application/json"})); a.download="ispu_sifre_"+(RV.svc||"wms")+"_"+dan()+".json"; document.body.appendChild(a); a.click(); a.remove();};
 document.getElementById("rvCopy").onclick=()=>{if(!RV.items.length){alert("Prvo pokreni pregled listova.");return;} const j=JSON.stringify(rvExport(),null,1); try{navigator.clipboard.writeText(j).then(()=>alert("JSON kopiran"),()=>{out.textContent=j;alert("Kopiranje nije uspjelo; JSON je u okviru Rezultat.");});}catch(e){out.textContent=j;}};
 document.getElementById("rvClear").onclick=()=>{if(!confirm("Obrisati sve unose za prikazane listove?")) return; for(const it of RV.items){try{localStorage.removeItem(rvKey(it.name))}catch(e){}} const g=document.getElementById("rvGrid"); g.innerHTML=""; RV.items.forEach((it,i)=>g.appendChild(rvCard(it,i))); rvSumUpd();};
+</script>
+<script>
+// ---- gradski servis GUP-a (ArcGIS MapServer i njegov WMS) ----
+document.getElementById("gz").onclick=async()=>{
+  start("Gradski servis GUP-a"); const base=document.getElementById("gzU").value.trim().replace(/\/+$/,""), lat=+document.getElementById("zl").value, lon=+document.getElementById("zo").value;
+  const g=document.getElementById("gzGrid"); g.innerHTML="";
+  // 1) ArcGIS REST: popis slojeva s nazivima, opisom i prostornim sustavom
+  const j=await get(base+"?f=json","json");
+  if(j&&!j.error){P("Naziv servisa: "+(j.documentInfo&&j.documentInfo.Title||j.mapName||"–")+" · opis: "+String(j.serviceDescription||j.description||"").slice(0,300));
+    P("Prostorni sustav: "+JSON.stringify(j.spatialReference)+" · slojeva: "+((j.layers||[]).length));
+    for(const L of j.layers||[]) P("  ["+L.id+"] "+L.name+(L.parentLayerId>=0?" (unutar "+L.parentLayerId+")":"")+(L.subLayerIds?" · grupa":""));}
+  else if(j&&j.error) P("greška servisa: "+JSON.stringify(j.error));
+  // 2) WMS GetCapabilities istog servisa
+  const wms=base+"/WMSServer"; const x=await get(wms+"?service=WMS&request=GetCapabilities&version=1.3.0","text");
+  if(!x||!/WMS_Capabilities/.test(x)){P("\nWMS GetCapabilities nije dostupan."); P("\nKraj testa."); return;}
+  const doc=new DOMParser().parseFromString(x,"text/xml"), crs=[...doc.querySelectorAll("Capability > Layer > CRS")].map(c=>c.textContent);
+  P("\nWMS CRS: "+crs.slice(0,15).join(", "));
+  const Ls=[...doc.getElementsByTagName("Layer")].filter(L=>L.querySelector(":scope > Name")&&!L.querySelector(":scope > Layer"));
+  P("WMS slojeva (bez podslojeva): "+Ls.length);
+  const use3765=crs.includes("EPSG:3765"), [E,N]=tmFwd(lon,lat), h=150;
+  for(const L of Ls){const n=L.querySelector(":scope > Name").textContent, t=(L.querySelector(":scope > Title")||{}).textContent||"", par=(L.parentElement&&L.parentElement.querySelector(":scope > Title")||{}).textContent||"";
+    P("  "+n+" | "+t+(par?" | nadređeni: "+par:""));
+    const q=new URLSearchParams({SERVICE:"WMS",VERSION:"1.3.0",REQUEST:"GetMap",LAYERS:n,STYLES:"",CRS:use3765?"EPSG:3765":"CRS:84",
+      BBOX:(use3765?[E-h,N-h,E+h,N+h]:[lon-0.0019,lat-0.00135,lon+0.0019,lat+0.00135]).map(v=>v.toFixed(use3765?1:6)).join(","),WIDTH:"360",HEIGHT:"360",FORMAT:"image/png",TRANSPARENT:"FALSE"});
+    const d=document.createElement("div"); d.className="card"; d.innerHTML=`<img loading="lazy" alt="Izrez sloja"><code></code><br><small></small>`;
+    d.querySelector("img").src=wms+"?"+q; d.querySelector("code").textContent=n; d.querySelector("small").textContent=t+(par?" · "+par:"");
+    g.appendChild(d);}
+  P("\nIzrezi: 300 × 300 m oko točke ("+(use3765?"EPSG:3765":"CRS:84")+").\nKraj testa.");
+};
 </script></body></html>

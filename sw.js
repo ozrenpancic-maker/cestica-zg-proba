@@ -4,7 +4,7 @@
 //  - službeni mrežni podaci (katastar, GUP, slojevi Grada, OSM, Nominatim, Open-Meteo, AI) NIKAD se ne presreću ni spremaju;
 //  - stranica se uvijek prvo traži s mreže (nova verzija odmah kad je internet dostupan), a iz spremnika samo bez interneta;
 //  - nova verzija čeka korisnikovu potvrdu ("Dostupna je nova verzija") i ne briše localStorage (parcele, scenarije, unose).
-const VERSION = "d2e298280c02";
+const VERSION = "7c0f8df0bbd6";
 const SHELL = "czg-ljuska-" + VERSION;
 // knjižnice (Leaflet 1.9.4, Turf 6.5.0) su u mapi vendor/ uz aplikaciju, pa rade i bez interneta i bez CDN-a
 const LOCAL = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-192.png", "./icons/icon-maskable-512.png",
