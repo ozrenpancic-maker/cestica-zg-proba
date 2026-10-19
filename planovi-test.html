@@ -143,6 +143,11 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",
 function gm(name,bb,W,crs){const kx=Math.cos((bb[1]+bb[3])/2*Math.PI/180), H=Math.max(100,Math.min(4000,Math.round(W*(bb[3]-bb[1])/((bb[2]-bb[0])*kx))));
   return RV.host+"?"+new URLSearchParams({SERVICE:"WMS",VERSION:"1.3.0",REQUEST:"GetMap",LAYERS:name,STYLES:"",CRS:"CRS:84",BBOX:bb.join(","),WIDTH:String(W),HEIGHT:String(H),FORMAT:"image/png",TRANSPARENT:"FALSE"});}
 // naziv sloja ili šifra nije naslov karte
+// plan se može odabrati samo ako odgovara planu sloja (vrsta plana iz naziva sloja i Title servisa): list PPGZ-a ne može se potvrditi prikazom GUP-a
+function planOpcije(it,I){const t=String(it.title||""), v=I.vrsta_plana||"";
+  if(v==="GUP") return ["","GUP Grada Zagreba","GUP Sesvete","drugi plan"];
+  if(v==="PPZP"||/^PPGZ\b/.test(t)) return ["","Prostorni plan Grada Zagreba","drugi plan"];
+  return PLANOVI;}
 function rvStatus(o){const n=(o.naslov||"").trim(); return n&&!/^HR[_-]ISPU/i.test(n)&&!/^[A-Z]{1,4}([_ .-]\d+)+$/i.test(n)&&o.vrsta?"potvrđeno":"nepotvrđeno"}
 function rvSumUpd(){const n=RV.items.length, c=RV.items.filter(it=>rvStatus(rvLoad(it.name))==="potvrđeno").length; document.getElementById("rvSum").innerHTML=n?`<small>${n} listova · potvrđeno ${c} · nepotvrđeno ${n-c}</small>`:"<small>—</small>";}
 function rvCard(it,i){
@@ -151,7 +156,7 @@ function rvCard(it,i){
   d.innerHTML=`<img loading="lazy" src="${esc(gm(it.name,it.bb,360))}" alt="Minijatura lista ${esc(it.name)}" data-i="${i}">
    <code>${esc(it.name)}</code><br><small>Title u servisu: ${esc(it.title||"–")}${it.parent?" · nadređeni: "+esc(it.parent):""}</small><br>
    <small>plan ${esc(I.plan||"?")} · revizija ${esc(I.revizija||"?")} · šifra ${esc(I.sifra||"?")}</small>
-   <label>Plan (prema listu)<select data-f="plan_naziv">${PLANOVI.map(p=>`<option${p===(o.plan_naziv||"")?" selected":""} value="${esc(p)}">${p?esc(p):"— nepotvrđeno —"}</option>`).join("")}</select></label>
+   <label>Plan (prema listu)<select data-f="plan_naziv">${planOpcije(it,I).map(p=>`<option${p===(o.plan_naziv||"")?" selected":""} value="${esc(p)}">${p?esc(p):"— nepotvrđeno —"}</option>`).join("")}</select></label>
    ${opts?`<label>Službeni kartografski prikaz<select data-f="sluzbeni_prikaz"><option value="">— nije odabrano —</option>${opts.map(x=>`<option value="${x[0]}"${x[0]===o.sluzbeni_prikaz?" selected":""}>${esc(x[1])}</option>`).join("")}<option value="nema"${o.sluzbeni_prikaz==="nema"?" selected":""}>ništa od navedenoga</option></select></label>`:""}
    ${opts?`<small>Usporedi list sa službenim prikazom (PDF, <a href="${SLUZBENI_STRANICA}" target="_blank" rel="noopener">zagreb.hr</a>): ${opts.map(x=>`<a href="${esc(pdfUrl(o.plan_naziv,x[0]))}" target="_blank" rel="noopener">${esc(x[0])}</a>`).join(" · ")}. Odaberi prikaz samo ako je to ista karta.</small>`:""}
    <label>Naslov na listu ili službenog prikaza (ostavi prazno ako nije utvrđen)<input data-f="naslov" value="${esc(o.naslov||"")}"></label>
