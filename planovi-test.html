@@ -70,7 +70,7 @@ document.getElementById("pgz").onclick=async()=>{
 document.getElementById("ispu").onclick=async()=>{
   start("ISPU WMS"); const lat=+document.getElementById("zl").value, lon=+document.getElementById("zo").value, svc=document.getElementById("zs").value.trim().replace(/[^\w]/g,"");
   let xml=null, base=null;
-  for(const host of ["gis1","gis2","gis3","gis4"]){base="https://"+host+".mgipu.hr/srv1/"+svc+"/wms"; xml=await get(base+"?service=WMS&request=GetCapabilities&version=1.3.0","text"); if(xml&&/<WMS_Capabilities|<WMT_MS_Capabilities/.test(xml)) break; xml=null;}
+  for(const host of ["gis2","gis1","gis3","gis4"]){base="https://"+host+".mgipu.hr/srv1/"+svc+"/wms"; xml=await get(base+"?service=WMS&request=GetCapabilities&version=1.3.0","text"); if(xml&&/<WMS_Capabilities|<WMT_MS_Capabilities/.test(xml)) break; xml=null;}
   if(!xml){P("\nGetCapabilities nije dostupan iz preglednika ni na jednom poslužitelju."); P("\nKraj testa."); return;}
   const doc=new DOMParser().parseFromString(xml,"text/xml"), Ls=[...doc.getElementsByTagName("Layer")];
   P("\nSlojeva u GetCapabilities: "+Ls.length+" · formati: "+[...doc.querySelectorAll("GetMap Format")].map(x=>x.textContent).join(", "));
@@ -81,10 +81,17 @@ document.getElementById("ispu").onclick=async()=>{
   P("Slojeva čiji okvir sadrži točku: "+hits.length);
   for(const x of hits.slice(0,60)) P("  "+x.name+" | "+x.title+(x.abs?" | "+x.abs.slice(0,160):"")+(x.kw?" | "+x.kw.slice(0,120):""));
   P("\nPrvih 20 naziva slojeva (bez obzira na točku): "+Ls.map(L=>(L.querySelector(":scope > Name")||{}).textContent).filter(Boolean).slice(0,20).join(" ; "));
-  const pick=hits.find(x=>/GUP|UPU/i.test(x.name+" "+x.title))||hits[0];
-  if(pick){const [E,N]=tmFwd(lon,lat), h=150;
-    const q=new URLSearchParams({SERVICE:"WMS",VERSION:"1.3.0",REQUEST:"GetMap",LAYERS:pick.name,STYLES:"",CRS:"EPSG:3765",BBOX:[E-h,N-h,E+h,N+h].map(v=>v.toFixed(1)).join(","),WIDTH:"600",HEIGHT:"600",FORMAT:"image/png",TRANSPARENT:"FALSE"});
-    P("\nGetMap (EPSG:3765) za sloj "+pick.name); addImg(base+"?"+q,"ISPU GetMap "+pick.name+", 300 × 300 m oko točke");}
+  // za svaki sloj: naslov i nadređeni sloj iz GetCapabilities te slika cijelog lista (naslov karte i legenda) i izrez oko točke
+  const [E,N]=tmFwd(lon,lat), h=150;
+  P("\nDetalji slojeva na točki (Name | Title | nadređeni sloj | okvir):");
+  for(const L of Ls){const n=L.querySelector(":scope > Name"); if(!n||!hits.some(x=>x.name===n.textContent)) continue;
+    const t=(L.querySelector(":scope > Title")||{}).textContent||"", par=L.parentElement&&L.parentElement.querySelector(":scope > Title"), b=L.querySelector(":scope > EX_GeographicBoundingBox"), g=k=>+((b&&b.querySelector(k)||{}).textContent);
+    const bb=[g("westBoundLongitude"),g("southBoundLatitude"),g("eastBoundLongitude"),g("northBoundLatitude")];
+    P("  "+n.textContent+" | "+t+" | "+(par?par.textContent:"")+" | "+bb.map(v=>v.toFixed(4)).join(","));
+    const kx=Math.cos((bb[1]+bb[3])/2*Math.PI/180), W=900, H=Math.max(200,Math.min(2400,Math.round(W*(bb[3]-bb[1])/((bb[2]-bb[0])*kx))));
+    const qf=new URLSearchParams({SERVICE:"WMS",VERSION:"1.3.0",REQUEST:"GetMap",LAYERS:n.textContent,STYLES:"",CRS:"CRS:84",BBOX:bb.join(","),WIDTH:String(W),HEIGHT:String(H),FORMAT:"image/png",TRANSPARENT:"FALSE"});
+    const qc=new URLSearchParams({SERVICE:"WMS",VERSION:"1.3.0",REQUEST:"GetMap",LAYERS:n.textContent,STYLES:"",CRS:"EPSG:3765",BBOX:[E-h,N-h,E+h,N+h].map(v=>v.toFixed(1)).join(","),WIDTH:"500",HEIGHT:"500",FORMAT:"image/png",TRANSPARENT:"FALSE"});
+    addImg(base+"?"+qf,n.textContent+": CIJELI LIST (pročitaj naslov karte)"); addImg(base+"?"+qc,n.textContent+": 300 × 300 m oko točke");}
   P("\nKraj testa.");
 };
 document.getElementById("cp").onclick=()=>{try{navigator.clipboard.writeText(out.textContent).then(()=>alert("Kopirano"));}catch(e){alert("Kopiranje nije uspjelo; označi tekst ručno.");}};
