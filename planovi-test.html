@@ -35,7 +35,7 @@ small{color:var(--mut)} img{max-width:100%;border:1px solid var(--line);margin-t
 <button id="ispu">Pokreni ISPU test</button>
 
 <h2>3. Pregled i potvrda kartografskih listova (ISPU)</h2>
-<p><small>Za točku iz odjeljka 2 prikazuje sve listove čiji okvir obuhvaća točku: šifru, naziv iz servisa i minijaturu cijelog lista. Dodirni sliku za povećanje i pročitaj naslov i legendu na listu. Upiši naslov i vrstu samo ako su na listu čitljivi; inače ostavi „nepotvrđeno”. Aplikacija ne zaključuje značenje šifre iz njezina naziva. Unosi se pamte samo u ovom pregledniku dok ne izvezeš JSON.</small></p>
+<p><small>Listovi ISPU-a nemaju naslovni blok ni legendu (izrezani su po granici plana). Zato se vrsta potvrđuje usporedbom sa službenim grafičkim dijelom plana: uz GUP Grada Zagreba nude se poveznice na 9 službenih kartografskih prikaza (PDF). Za točku iz odjeljka 2 prikazuje sve listove čiji okvir obuhvaća točku: šifru, naziv iz servisa i minijaturu cijelog lista. Dodirni sliku za povećanje i pročitaj naslov i legendu na listu. Upiši naslov i vrstu samo ako su na listu čitljivi; inače ostavi „nepotvrđeno”. Aplikacija ne zaključuje značenje šifre iz njezina naziva. Unosi se pamte samo u ovom pregledniku dok ne izvezeš JSON.</small></p>
 <label>Tvoje ime ili oznaka (provjerio) <input id="rvWho" style="width:14em"></label><br>
 <button id="rv">Pregledaj listove</button><button id="rvJson">Izvezi potvrđene u JSON</button><button id="rvCopy">Kopiraj JSON</button><button id="rvClear">Obriši unose</button>
 <p id="rvSum"><small>—</small></p>
@@ -126,6 +126,11 @@ document.getElementById("cp").onclick=()=>{try{navigator.clipboard.writeText(out
 // Korisnik ga bira tek kad na listu pročita naslov; šifra se ne tumači.
 const SLUZBENI={"GUP Grada Zagreba":[["1","1. Korištenje i namjena prostora","namjena"],["2","2. Mreža gospodarskih i društvenih djelatnosti","ostalo"],["3a","3a. Promet","promet"],["3b","3b. Energetski sustav, pošta i telekomunikacije","infrastruktura"],["3c","3c. Vodnogospodarski sustav i postupanje s otpadom","infrastruktura"],["4a","4a. Urbana pravila","urbana_pravila"],["4b","4b. Procedure urbano-prostornog uređenja","ostalo"],["4c","4c. Zaštićeni i evidentirani dijelovi prirode","zastita"],["4d","4d. Nepokretna kulturna dobra","zastita"]]};
 const SLUZBENI_IZVOR="Odluka o GUP-u Grada Zagreba, čl. 5. st. 1. t. B (popis kartografskih prikaza)";
+// službeni grafički dio važećeg GUP-a (zagreb.hr, Odluka o izmjenama i dopunama SGGZ 9/16, mj. 1:5000) za usporedbu s listom ISPU-a
+const GUP_PDF_BASE="https://www.zagreb.hr/userdocsimages/arhiva/prostorni_planovi/GUP ZAGREBA_USVOJENI plan 6-2016/KARTOGRAFSKI PRIKAZI - NOVO/";
+const SLUZBENI_PDF={"GUP Grada Zagreba":{"1":"1_namjena_GUPZG2016.pdf","2":"2_javna_namjena_GUPZG2016.pdf","3a":"3a_promet_GUPZG2016.pdf","3b":"3b_energija_GUPZG2016.pdf","3c":"3c_voda_GUPZG2016.pdf","4a":"4a_urbana_pravila_GUPZG2016.pdf","4b":"4b_procedure_GUPZG2016.pdf","4c":"4c_zastita_prirode_GUPZG2016.pdf","4d":"4d_kultura_GUPZG2016.pdf"}};
+const SLUZBENI_STRANICA="https://www.zagreb.hr/izmjene-i-dopune-generalnoga-urbanistickog-plana-g/187657";
+const pdfUrl=(plan,k)=>SLUZBENI_PDF[plan]&&SLUZBENI_PDF[plan][k]?encodeURI(GUP_PDF_BASE+SLUZBENI_PDF[plan][k]):null;
 const PLANOVI=["","GUP Grada Zagreba","GUP Sesvete","Prostorni plan Grada Zagreba","drugi plan"];
 const VRSTE=[["","— nepotvrđeno —"],["namjena","korištenje i namjena"],["urbana_pravila","urbana pravila"],["promet","promet"],["infrastruktura","komunalna i energetska infrastruktura"],["zastita","zaštita (priroda, baština, uvjeti)"],["ostalo","ostalo"]];
 const RV={host:null,svc:null,tocka:null,items:[]};
@@ -137,7 +142,8 @@ function ime(n){const m=String(n).match(/^HR_ISPU_([A-Z]+?)(\d*)_(\d+)_R(\d+)_(.
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function gm(name,bb,W,crs){const kx=Math.cos((bb[1]+bb[3])/2*Math.PI/180), H=Math.max(100,Math.min(4000,Math.round(W*(bb[3]-bb[1])/((bb[2]-bb[0])*kx))));
   return RV.host+"?"+new URLSearchParams({SERVICE:"WMS",VERSION:"1.3.0",REQUEST:"GetMap",LAYERS:name,STYLES:"",CRS:"CRS:84",BBOX:bb.join(","),WIDTH:String(W),HEIGHT:String(H),FORMAT:"image/png",TRANSPARENT:"FALSE"});}
-function rvStatus(o){return o.naslov&&o.naslov.trim()&&o.vrsta?"potvrđeno":"nepotvrđeno"}
+// naziv sloja ili šifra nije naslov karte
+function rvStatus(o){const n=(o.naslov||"").trim(); return n&&!/^HR[_-]ISPU/i.test(n)&&!/^[A-Z]{1,4}([_ .-]\d+)+$/i.test(n)&&o.vrsta?"potvrđeno":"nepotvrđeno"}
 function rvSumUpd(){const n=RV.items.length, c=RV.items.filter(it=>rvStatus(rvLoad(it.name))==="potvrđeno").length; document.getElementById("rvSum").innerHTML=n?`<small>${n} listova · potvrđeno ${c} · nepotvrđeno ${n-c}</small>`:"<small>—</small>";}
 function rvCard(it,i){
   const o=rvLoad(it.name), I=ime(it.name), d=document.createElement("div"); d.className="card";
@@ -147,13 +153,14 @@ function rvCard(it,i){
    <small>plan ${esc(I.plan||"?")} · revizija ${esc(I.revizija||"?")} · šifra ${esc(I.sifra||"?")}</small>
    <label>Plan (prema listu)<select data-f="plan_naziv">${PLANOVI.map(p=>`<option${p===(o.plan_naziv||"")?" selected":""} value="${esc(p)}">${p?esc(p):"— nepotvrđeno —"}</option>`).join("")}</select></label>
    ${opts?`<label>Službeni kartografski prikaz<select data-f="sluzbeni_prikaz"><option value="">— nije odabrano —</option>${opts.map(x=>`<option value="${x[0]}"${x[0]===o.sluzbeni_prikaz?" selected":""}>${esc(x[1])}</option>`).join("")}<option value="nema"${o.sluzbeni_prikaz==="nema"?" selected":""}>ništa od navedenoga</option></select></label>`:""}
-   <label>Naslov na listu (prepiši ili ostavi prazno)<input data-f="naslov" value="${esc(o.naslov||"")}"></label>
+   ${opts?`<small>Usporedi list sa službenim prikazom (PDF, <a href="${SLUZBENI_STRANICA}" target="_blank" rel="noopener">zagreb.hr</a>): ${opts.map(x=>`<a href="${esc(pdfUrl(o.plan_naziv,x[0]))}" target="_blank" rel="noopener">${esc(x[0])}</a>`).join(" · ")}. Odaberi prikaz samo ako je to ista karta.</small>`:""}
+   <label>Naslov na listu ili službenog prikaza (ostavi prazno ako nije utvrđen)<input data-f="naslov" value="${esc(o.naslov||"")}"></label>
    <label>Vrsta karte<select data-f="vrsta">${VRSTE.map(v=>`<option value="${v[0]}"${v[0]===(o.vrsta||"")?" selected":""}>${esc(v[1])}</option>`).join("")}</select></label>
    <label>Napomena<input data-f="napomena" value="${esc(o.napomena||"")}"></label>
    <span class="st ${rvStatus(o)==="potvrđeno"?"ok":"bad"}">${rvStatus(o)}</span>`;
   d.querySelector("img").onclick=()=>lbOpen(it);
   d.addEventListener("change",e=>{const f=e.target.dataset.f; if(!f) return; const x=rvLoad(it.name); x[f]=e.target.value;
-    if(f==="sluzbeni_prikaz"){const S=(SLUZBENI[x.plan_naziv]||[]).find(y=>y[0]===e.target.value); if(S){x.naslov=S[1]; x.vrsta=S[2]; x.izvor_naziva=SLUZBENI_IZVOR;} else delete x.izvor_naziva;}
+    if(f==="sluzbeni_prikaz"){const S=(SLUZBENI[x.plan_naziv]||[]).find(y=>y[0]===e.target.value); if(S){x.naslov=S[1]; x.vrsta=S[2]; x.izvor_naziva=SLUZBENI_IZVOR+"; usporedba lista sa službenim prikazom "+(pdfUrl(x.plan_naziv,S[0])||SLUZBENI_STRANICA);} else delete x.izvor_naziva;}
     if(f==="naslov"&&!(SLUZBENI[x.plan_naziv]||[]).some(y=>y[1]===x.naslov)) delete x.izvor_naziva;
     if(f==="plan_naziv"){delete x.sluzbeni_prikaz;}
     x.datum_provjere=dan(); rvSave(it.name,x);
@@ -188,7 +195,7 @@ function rvExport(){
   const zapisi=RV.items.map(it=>{const o=rvLoad(it.name), I=ime(it.name), st=rvStatus(o);
     return {sloj:it.name,plan:I.plan,vrsta_plana:I.vrsta_plana,revizija:I.revizija,sifra:I.sifra,title_u_servisu:it.title||null,nadredeni_sloj:it.parent||null,
       plan_naziv:o.plan_naziv||null,sluzbeni_prikaz:o.sluzbeni_prikaz&&o.sluzbeni_prikaz!=="nema"?o.sluzbeni_prikaz:null,naslov:st==="potvrđeno"?o.naslov.trim():null,vrsta:st==="potvrđeno"?o.vrsta:null,status:st,
-      izvor:st==="potvrđeno"?("naslov pročitan na cijelom listu (ISPU WMS GetMap)"+(o.izvor_naziva?"; naziv iz: "+o.izvor_naziva:"")):null,datum_provjere:st==="potvrđeno"?(o.datum_provjere||dan()):null,provjerio:who||null,napomena:o.napomena||null};});
+      izvor:st==="potvrđeno"?(o.izvor_naziva?"list ISPU-a uspoređen sa službenim grafičkim dijelom plana; naziv iz: "+o.izvor_naziva:"naslov utvrđen pregledom lista (ISPU WMS GetMap)"):null,datum_provjere:st==="potvrđeno"?(o.datum_provjere||dan()):null,provjerio:who||null,napomena:o.napomena||null};});
   return {verzija_sheme:"1.0",vrsta:"ISPU šifre kartografskih prikaza",servis:RV.svc,posluzitelj:RV.host,tocka:RV.tocka,izvezeno:new Date().toISOString(),potvrdeno:zapisi.filter(z=>z.status==="potvrđeno").length,zapisi};
 }
 document.getElementById("rvJson").onclick=()=>{if(!RV.items.length){alert("Prvo pokreni pregled listova.");return;} const j=JSON.stringify(rvExport(),null,1), a=document.createElement("a");
