@@ -1,8 +1,8 @@
 {
   "id": "/cestica-zg-proba/",
-  "name": "ČesticaZG proba",
-  "short_name": "ČesticaZG proba",
-  "description": "PROBNA verzija (grana razvoj): Katastarske čestice u Gradu Zagrebu: namjena, uvjeti gradnje, rizici, simulator kuće i troškovi.",
+  "name": "Čestica HR proba",
+  "short_name": "Čestica HR proba",
+  "description": "PROBNA verzija (grana razvoj): Katastarske čestice u Zagrebu i na otoku Krku (pilot): namjena, uvjeti gradnje, rizici, infrastruktura, simulator kuće i troškovi.",
   "lang": "hr",
   "dir": "ltr",
   "start_url": "./?izvor=aplikacija",
