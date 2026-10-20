@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Okoliš test</title>
+<style>
+:root{--bg:#fff;--fg:#1d1d1b;--mut:#666;--box:#f4f4f2}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--fg:#eee;--mut:#aaa;--box:#24241f}}
+body{background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,sans-serif;margin:0;padding:16px;max-width:820px}
+h1{font-size:1.2rem}input,select{font:inherit;padding:6px}button{font:inherit;padding:8px 14px;margin:6px 6px 6px 0}
+pre{background:var(--box);padding:10px;white-space:pre-wrap;word-break:break-word;font-size:12px;max-height:65vh;overflow:auto}small{color:var(--mut)}
+</style></head><body>
+<h1>Čestica HR – test servisa: poplave, zaštićena područja, Natura 2000</h1>
+<p><small>Provjerava smije li aplikacija iz preglednika čitati javne slojeve Hrvatskih voda (karte opasnosti od poplava), Bioportala (zaštićena područja) i EEA (Natura 2000). Ne šalje ništa osim točke na karti.</small></p>
+<label>Točka <select id="pt">
+<option value="45.7865,16.0300">Zagreb, uz Savu (Savica)</option>
+<option value="45.8400,15.9900">Zagreb, Remete</option>
+<option value="45.0274,14.5935">Krk, Kornić</option>
+<option value="45.4870,16.3780">Sisak, uz Kupu</option>
+</select></label>
+<button id="go">Pokreni test</button><button id="cp">Kopiraj rezultat</button>
+<pre id="out">—</pre>
+<script>
+const out=document.getElementById("out"); let log=[]; const P=s=>{log.push(s); out.textContent=log.join("\n");};
+const T=ms=>AbortSignal.timeout(ms);
+async function txt(u){P("GET "+u.slice(0,160)+(u.length>160?"…":"")); try{const r=await fetch(u,{mode:"cors",credentials:"omit",signal:T(20000)}); const t=await r.text(); P((r.ok?"✔ ":"✘ ")+"HTTP "+r.status+" · "+(r.headers.get("content-type")||"?")+" · "+t.length+" znakova"); return r.ok?t:null;}catch(e){P("✘ "+e.name+": "+e.message+" (najčešće CORS ili mreža)"); return null;}}
+function layers(xml){const d=new DOMParser().parseFromString(xml,"text/xml"), out=[];
+  for(const L of d.getElementsByTagName("Layer")){const n=[...L.children].find(c=>c.localName==="Name"), t=[...L.children].find(c=>c.localName==="Title"); if(!n) continue;
+    const crs=[...L.children].filter(c=>c.localName==="CRS"||c.localName==="SRS").map(c=>c.textContent).slice(0,6);
+    out.push({name:n.textContent,title:t?t.textContent:"",q:L.getAttribute("queryable"),crs});}
+  const fi=[...d.getElementsByTagName("GetFeatureInfo")][0], fmts=fi?[...fi.getElementsByTagName("Format")].map(f=>f.textContent):[]; return {L:out,fmts};}
+async function gfi(base,layer,lat,lon,fmts){
+  const d=0.0005, bbox=[lat-d,lon-d,lat+d,lon+d].join(","), fmt=fmts.find(f=>/json/i.test(f))||fmts.find(f=>/plain/i.test(f))||fmts.find(f=>/html/i.test(f))||"text/plain";
+  const q=new URLSearchParams({SERVICE:"WMS",VERSION:"1.3.0",REQUEST:"GetFeatureInfo",LAYERS:layer,QUERY_LAYERS:layer,STYLES:"",CRS:"EPSG:4326",BBOX:bbox,WIDTH:"101",HEIGHT:"101",I:"50",J:"50",INFO_FORMAT:fmt,FEATURE_COUNT:"5",FORMAT:"image/png"});
+  const t=await txt(base+(base.includes("?")?"&":"?")+q.toString()); if(t!=null) P("   odgovor ("+fmt+"): "+t.replace(/\s+/g," ").slice(0,400));}
+async function wms(name,base,re){
+  P("\n== "+name+" =="); const x=await txt(base+(base.includes("?")?"&":"?")+"SERVICE=WMS&REQUEST=GetCapabilities&VERSION=1.3.0"); if(!x) return;
+  const C=layers(x); P("slojeva: "+C.L.length+" · GetFeatureInfo formati: "+C.fmts.join(", "));
+  const hit=C.L.filter(l=>re.test(l.name+" "+l.title)); P("odgovarajući slojevi ("+hit.length+"):"); hit.slice(0,40).forEach(l=>P(" - "+l.name+" | "+l.title+" | queryable="+l.q+" | "+l.crs.join(" ")));
+  if(!hit.length) C.L.slice(0,40).forEach(l=>P(" · "+l.name+" | "+l.title));
+  const [lat,lon]=document.getElementById("pt").value.split(",").map(Number);
+  for(const l of hit.filter(l=>l.q==="1").slice(0,10)){P("GetFeatureInfo "+l.name); await gfi(base,l.name,lat,lon,C.fmts);}
+}
+document.getElementById("go").onclick=async()=>{log=[]; const [lat,lon]=document.getElementById("pt").value.split(",").map(Number);
+  P("Početak "+new Date().toLocaleString("hr-HR")+" · točka "+lat+", "+lon+"\n"+navigator.userAgent);
+  await wms("Hrvatske vode (karte opasnosti od poplava)","https://servisi.voda.hr/public_ows/wms",/poplav|flood|opasn|vjerojat/i);
+  await wms("Bioportal (zaštita prirode)","https://services.bioportal.hr/wms",/za[sš]ti[cć]|natura|ekolo|povs|pop\b/i);
+  P("\n== EEA Natura 2000 ==");
+  const q=new URLSearchParams({geometry:lon+","+lat,geometryType:"esriGeometryPoint",inSR:"4326",spatialRel:"esriSpatialRelIntersects",outFields:"SITECODE,SITENAME,SITETYPE,RELEASE_DATE,MS",returnGeometry:"false",f:"json"});
+  const t=await txt("https://bio.discomap.eea.europa.eu/arcgis/rest/services/ProtectedSites/Natura2000Sites/MapServer/2/query?"+q.toString()); if(t) P("   "+t.slice(0,500));
+  P("\nKraj testa.");};
+document.getElementById("cp").onclick=()=>{try{navigator.clipboard.writeText(out.textContent).then(()=>alert("Kopirano"))}catch(e){alert("Označi tekst ručno.")}};
+</script></body></html>
