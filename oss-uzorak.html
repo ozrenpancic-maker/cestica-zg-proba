@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OSS uzorak</title>
+<style>
+:root{--bg:#fff;--fg:#1d1d1b;--mut:#666;--box:#f4f4f2;--acc:#1d3b2f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--fg:#eee;--mut:#aaa;--box:#24241f;--acc:#7fc4a0}}
+body{background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,sans-serif;margin:0;padding:16px;max-width:820px}
+h1{font-size:1.25rem}ol li{margin:4px 0}textarea,pre{width:100%;box-sizing:border-box;background:var(--box);color:var(--fg);border:1px solid #8884;border-radius:6px;padding:8px;font:12px/1.4 ui-monospace,monospace}
+textarea{height:28vh}pre{white-space:pre-wrap;word-break:break-word;max-height:45vh;overflow:auto}
+button{font:inherit;padding:8px 14px;margin:6px 6px 6px 0}small{color:var(--mut)}code{background:var(--box);padding:1px 4px;border-radius:4px}
+</style></head><body>
+<h1>Čestica HR – uzorak ZK uloška bez osobnih podataka</h1>
+<p><small>Sve se radi samo u ovom pregledniku; ništa se ne šalje. Rezultat sadrži nazive polja i strukturu, a umjesto teksta piše samo koliko je znakova imao.</small></p>
+<ol>
+<li>Na računalu u Chromeu otvori <a href="https://oss.uredjenazemlja.hr/" target="_blank" rel="noopener">oss.uredjenazemlja.hr</a> i pronađi česticu (kao na tvojoj slici).</li>
+<li>Pritisni <b>F12</b> → kartica <b>Network</b> (Mreža), u filter upiši <code>lr-unit</code>, pa ponovno otvori česticu (ili osvježi stranicu).</li>
+<li>Klikni redak <code>lr-unit?...</code> → kartica <b>Response</b> (Odgovor) → označi sve (Ctrl+A) i kopiraj (Ctrl+C).</li>
+<li>Zalijepi ovdje i pritisni „Napravi uzorak”. Provjeri rezultat i pošalji ga.</li>
+</ol>
+<textarea id="in" placeholder="Ovdje zalijepi odgovor lr-unit (JSON)"></textarea>
+<button id="go">Napravi uzorak</button><button id="cp">Kopiraj uzorak</button>
+<pre id="out">—</pre>
+<script>
+// Zadržavaju se samo: nazivi polja, brojevi, logičke vrijednosti, datumi i kratke šifre u poljima čiji naziv upućuje na vrstu ili stanje.
+// Svaki drugi tekst (imena, adrese, OIB, sadržaj upisa) zamjenjuje se s «tekst, N znakova».
+const SAFEKEY=/(^|_)(type|status|kind|code|state|vrsta|tip|stanje|class|category)$|Type$|Status$|Kind$|Code$|State$/;
+const DATE=/^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?([+-]\d{2}:?\d{2})?)?$|^\d{1,2}\.\d{1,2}\.\d{4}\.?$/;
+const PII=/oib|name|ime|prezime|adres|address|owner|street|ulica|birth|rod|jmbg|person|osob/i;
+function red(v,k){
+  if(v==null||typeof v==="boolean") return v;
+  if(typeof v==="number") return k&&PII.test(k)?"«broj»":v;
+  if(typeof v==="string"){ if(DATE.test(v)) return v; if(k&&SAFEKEY.test(k)&&!PII.test(k)&&v.length<=40) return v; return "«tekst, "+v.length+" znakova»"; }
+  if(Array.isArray(v)) return v.slice(0,4).map(x=>red(x)).concat(v.length>4?["… još "+(v.length-4)+" stavki"]:[]);
+  return Object.fromEntries(Object.keys(v).map(kk=>[kk,red(v[kk],kk)]));
+}
+document.getElementById("go").onclick=()=>{const o=document.getElementById("out");
+  try{const j=JSON.parse(document.getElementById("in").value); o.textContent=JSON.stringify(red(j),null,1);}
+  catch(e){o.textContent="Nije ispravan JSON: "+e.message+". Kopiraj cijeli odgovor iz kartice Response.";}};
+document.getElementById("cp").onclick=()=>{const t=document.getElementById("out").textContent; try{navigator.clipboard.writeText(t).then(()=>alert("Kopirano"));}catch(e){alert("Označi tekst ručno.");}};
+</script></body></html>
