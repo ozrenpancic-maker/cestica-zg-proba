@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Okoliš test</title>
+<title>Okoliš test v3</title>
 <style>
 :root{--bg:#fff;--fg:#1d1d1b;--mut:#666;--box:#f4f4f2}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--fg:#eee;--mut:#aaa;--box:#24241f}}
@@ -8,7 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,sans-serif;ma
 h1{font-size:1.2rem}input,select{font:inherit;padding:6px}button{font:inherit;padding:8px 14px;margin:6px 6px 6px 0}
 pre{background:var(--box);padding:10px;white-space:pre-wrap;word-break:break-word;font-size:12px;max-height:65vh;overflow:auto}small{color:var(--mut)}
 </style></head><body>
-<h1>Čestica HR – test servisa: poplave, zaštićena područja, Natura 2000</h1>
+<h1>Čestica HR – test servisa (v3): poplave, zaštićena područja, Natura 2000</h1>
 <p><small>Provjerava smije li aplikacija iz preglednika čitati javne slojeve Hrvatskih voda (karte opasnosti od poplava), Bioportala (zaštićena područja) i EEA (Natura 2000). Ne šalje ništa osim točke na karti.</small></p>
 <label>Točka <select id="pt">
 <option value="45.8994,15.9446">Medvednica (Sljeme), park prirode</option>
@@ -31,7 +31,7 @@ function layers(xml){const d=new DOMParser().parseFromString(xml,"text/xml"), ou
 async function gfi(base,layer,lat,lon,fmts){
   const d=0.0005, bbox=[lat-d,lon-d,lat+d,lon+d].join(","), fmt=fmts.find(f=>/json/i.test(f))||fmts.find(f=>/plain/i.test(f))||fmts.find(f=>/html/i.test(f))||"text/plain";
   const q=new URLSearchParams({SERVICE:"WMS",VERSION:"1.3.0",REQUEST:"GetFeatureInfo",LAYERS:layer,QUERY_LAYERS:layer,STYLES:"",CRS:"EPSG:4326",BBOX:bbox,WIDTH:"101",HEIGHT:"101",I:"50",J:"50",INFO_FORMAT:fmt,FEATURE_COUNT:"5",FORMAT:"image/png"});
-  const t=await txt(base+(base.includes("?")?"&":"?")+q.toString()); if(t!=null) P("   odgovor ("+fmt+"): "+t.replace(/\s+/g," ").slice(0,1500));}
+  const t=await txt(base+(base.includes("?")?"&":"?")+q.toString()); if(t!=null){ try{const j=JSON.parse(t); P("   objekata: "+(j.features||[]).length+(j.features&&j.features.length?" · svojstva: "+JSON.stringify(j.features.slice(0,3).map(f=>f.properties)).slice(0,1500):""));}catch(e){P("   odgovor ("+fmt+"): "+t.replace(/\s+/g," ").slice(0,600));} } }
 async function wms(name,base,re){
   P("\n== "+name+" =="); const x=await txt(base+(base.includes("?")?"&":"?")+"SERVICE=WMS&REQUEST=GetCapabilities&VERSION=1.3.0"); if(!x) return;
   const C=layers(x); P("slojeva: "+C.L.length+" · GetFeatureInfo formati: "+C.fmts.join(", "));
