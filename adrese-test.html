@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Adrese test</title>
+<title>Adrese test v2</title>
 <style>
 :root{--bg:#fff;--fg:#1d1d1b;--mut:#666;--box:#f4f4f2}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--fg:#eee;--mut:#aaa;--box:#24241f}}
@@ -35,6 +35,13 @@ document.getElementById("go").onclick=async()=>{log=[]; const q=document.getElem
   P("\n== DGU registar adresa: WFS ==");
   for(const u of ["https://geoportal.dgu.hr/services/inspire/ad/wfs","https://geoportal.dgu.hr/services/sla/inspire/wfs_ad/wfs"]){
     const w=await get(u+"?service=WFS&version=2.0.0&request=GetCapabilities"); if(w&&w.t){const L=lay(w.t); P("tipova: "+L.length); L.slice(0,10).forEach(x=>P(" - "+x)); if(!L.length) P("   "+w.t.replace(/\s+/g," ").slice(0,300));} }
+  P("\n== DGU WFS (sla): GetFeature oko točke ==");
+  const SW="https://geoportal.dgu.hr/services/sla/inspire/wfs_ad/wfs";
+  const cap=await get(SW+"?service=WFS&version=2.0.0&request=GetCapabilities"); if(cap&&cap.t){ const of=[...new Set((cap.t.match(/<ows:Value>[^<]*(json|gml|xml)[^<]*<\/ows:Value>/gi)||[]).map(x=>x.replace(/<[^>]+>/g,"")))]; P("izlazni formati: "+of.slice(0,12).join(", ")); const crs=(cap.t.match(/<(wfs:)?DefaultCRS>[^<]+/g)||[]).slice(0,4).map(x=>x.replace(/<[^>]+>/,"")); P("CRS: "+crs.join(", ")); }
+  if(pt){ const d=0.004, bb=[pt[0]-d,pt[1]-d,pt[0]+d,pt[1]+d].map(v=>v.toFixed(5)).join(",")+",urn:ogc:def:crs:EPSG::4326";
+    for(const tn of ["wfs_ad:Address","wfs_ad:ThoroughfareName"]) for(const of of ["application/json","json",""]){
+      const prm={service:"WFS",version:"2.0.0",request:"GetFeature",typeNames:tn,bbox:bb,count:"3"}; if(of) prm.outputFormat=of;
+      const r=await get(SW+"?"+new URLSearchParams(prm)); if(r&&r.t){ P("   ["+tn+" · "+(of||"zadano")+"] "+r.t.replace(/\s+/g," ").slice(0,1600)); if(r.ok&&r.t.length>300) break; } } }
   P("\nKraj testa.");};
 document.getElementById("cp").onclick=()=>{try{navigator.clipboard.writeText(out.textContent).then(()=>alert("Kopirano"))}catch(e){alert("Označi tekst ručno.")}};
 </script></body></html>
