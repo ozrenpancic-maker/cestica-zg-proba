@@ -43,6 +43,7 @@ async function wms(name,base,re){
 document.getElementById("go").onclick=async()=>{log=[]; const [lat,lon]=document.getElementById("pt").value.split(",").map(Number);
   P("Početak "+new Date().toLocaleString("hr-HR")+" · točka "+lat+", "+lon+"\n"+navigator.userAgent);
   await wms("Hrvatske vode (karte opasnosti od poplava)","https://servisi.voda.hr/public_ows/wms",/poplav|flood|opasn|vjerojat/i);
+  await wms("Hrvatske vode, preglednik (geocluster)","https://preglednik.voda.hr/geocluster/wms",/poplav|opasn|vjerojat|dubin|flood|\bkop\b|\.kop\.|\.fd\./i);
   await wms("Bioportal (zaštita prirode)","https://services.bioportal.hr/wms",/za[sš]ti[cć]|natura|ekolo|povs|pop\b/i);
   P("\n== EEA Natura 2000 ==");
   const q=new URLSearchParams({geometry:lon+","+lat,geometryType:"esriGeometryPoint",inSR:"4326",spatialRel:"esriSpatialRelIntersects",outFields:"SITECODE,SITENAME,SITETYPE,RELEASE_DATE,MS",returnGeometry:"false",f:"json"});
