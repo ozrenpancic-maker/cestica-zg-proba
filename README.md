@@ -1,5 +1,5 @@
 # ČesticaZG – probna verzija
 
-Probna objava grane `razvoj` iz repozitorija [cestica-zg](https://github.com/ozrenpancic-maker/cestica-zg) (commit 8d674d1), za isprobavanje na mobitelu.
+Probna objava grane `razvoj` iz repozitorija [cestica-zg](https://github.com/ozrenpancic-maker/cestica-zg) (commit d6b26f6), za isprobavanje na mobitelu.
 Produkcija: https://ozrenpancic-maker.github.io/cestica-zg/ (nije mijenjana).
 Ovdje se ne radi razvoj; datoteke se kopiraju iz razvojne grane.

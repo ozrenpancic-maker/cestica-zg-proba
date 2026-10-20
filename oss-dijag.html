@@ -11,10 +11,11 @@ pre{background:var(--box);padding:10px;white-space:pre-wrap;word-break:break-wor
 <h1>Čestica HR – dijagnostika ZK uloška (OSS preko posrednika)</h1>
 <p><small>Uzme 12 čestica oko odabrane točke iz katastarskog sloja DGU i za svaku pita posrednika (Worker) za ZK uložak, jednu po jednu, sa stankom od 1,5 s. Prikazuje samo stanje odgovora, broj čestice i broj uloška (bez vlasnika i tereta).</small></p>
 <label>Područje <select id="pt"><option value="45.0274,14.5935">Krk, Kornić</option><option value="45.8400,15.9900">Zagreb, Remete</option><option value="45.7990,15.9550">Zagreb, Trešnjevka</option></select></label>
+<label>Posrednik <select id="px"><option value="https://cestica-oss.ozren-pancic.workers.dev/">Cloudflare (glavni)</option><option value="https://cestica-oss.ozrenpancic-maker.deno.net/">Deno (rezervni)</option></select></label>
 <button id="go">Pokreni</button><button id="cp">Kopiraj rezultat</button>
 <pre id="out">—</pre>
 <script>
-const W="https://cestica-oss.ozren-pancic.workers.dev/", WMS="https://wms1-gs-oss.uredjenazemlja.hr/ows2-m/wms";
+const WMS="https://wms1-gs-oss.uredjenazemlja.hr/ows2-m/wms";
 function tm(lon,lat){const a=6378137,f=1/298.257222101,k0=0.9999,lon0=16.5,E0=500000,e2=f*(2-f),ep2=e2/(1-e2),r=Math.PI/180;
   const M=p=>{const e4=e2*e2,e6=e4*e2;return a*((1-e2/4-3*e4/64-5*e6/256)*p-(3*e2/8+3*e4/32+45*e6/1024)*Math.sin(2*p)+(15*e4/256+45*e6/1024)*Math.sin(4*p)-(35*e6/3072)*Math.sin(6*p));};
   const phi=lat*r,s=Math.sin(phi),c=Math.cos(phi),t=Math.tan(phi),N=a/Math.sqrt(1-e2*s*s),T=t*t,C=ep2*c*c,A=(lon-lon0)*r*c;
@@ -30,7 +31,7 @@ document.getElementById("go").onclick=async()=>{log=[]; const [lat,lon]=document
   P("Čestica za test: "+ids.size+"\n");
   let ok=0, bad=0, ul=0;
   for(const [id,broj] of ids){ const t0=performance.now();
-    try{ const r=await fetch(W+"?id="+encodeURIComponent(id)+"&ulozak=1",{cache:"no-store",signal:AbortSignal.timeout(25000)}); const j=await r.json().catch(()=>null); const ms=Math.round(performance.now()-t0);
+    try{ const r=await fetch(document.getElementById("px").value+"?id="+encodeURIComponent(id)+"&ulozak=1",{cache:"no-store",signal:AbortSignal.timeout(25000)}); const j=await r.json().catch(()=>null); const ms=Math.round(performance.now()-t0);
       if(r.ok&&j&&j.ok){ok++; const u=(j.ulosci||[]).map(x=>x.ulozak).join(","); if(u) ul++; P(`✔ ${broj} · HTTP ${r.status} · ${ms} ms · uložak ${u||"—"}${j.ulosciGreska?" · GREŠKA ULOŠKA: "+j.ulosciGreska:""}${j.izCachea?" · iz predmemorije":""} · cf ${j.cf||"?"}`);}
       else {bad++; P(`✘ ${broj} · HTTP ${r.status} · ${ms} ms · ${(j&&j.greska)||"?"} · cf ${(j&&j.cf)||"?"}`);} }
     catch(e){bad++; P(`✘ ${broj} · ${e.name}: ${e.message}`);}
