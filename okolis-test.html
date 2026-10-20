@@ -11,6 +11,7 @@ pre{background:var(--box);padding:10px;white-space:pre-wrap;word-break:break-wor
 <h1>Čestica HR – test servisa: poplave, zaštićena područja, Natura 2000</h1>
 <p><small>Provjerava smije li aplikacija iz preglednika čitati javne slojeve Hrvatskih voda (karte opasnosti od poplava), Bioportala (zaštićena područja) i EEA (Natura 2000). Ne šalje ništa osim točke na karti.</small></p>
 <label>Točka <select id="pt">
+<option value="45.8994,15.9446">Medvednica (Sljeme), park prirode</option>
 <option value="45.7865,16.0300">Zagreb, uz Savu (Savica)</option>
 <option value="45.8400,15.9900">Zagreb, Remete</option>
 <option value="45.0274,14.5935">Krk, Kornić</option>
@@ -30,12 +31,12 @@ function layers(xml){const d=new DOMParser().parseFromString(xml,"text/xml"), ou
 async function gfi(base,layer,lat,lon,fmts){
   const d=0.0005, bbox=[lat-d,lon-d,lat+d,lon+d].join(","), fmt=fmts.find(f=>/json/i.test(f))||fmts.find(f=>/plain/i.test(f))||fmts.find(f=>/html/i.test(f))||"text/plain";
   const q=new URLSearchParams({SERVICE:"WMS",VERSION:"1.3.0",REQUEST:"GetFeatureInfo",LAYERS:layer,QUERY_LAYERS:layer,STYLES:"",CRS:"EPSG:4326",BBOX:bbox,WIDTH:"101",HEIGHT:"101",I:"50",J:"50",INFO_FORMAT:fmt,FEATURE_COUNT:"5",FORMAT:"image/png"});
-  const t=await txt(base+(base.includes("?")?"&":"?")+q.toString()); if(t!=null) P("   odgovor ("+fmt+"): "+t.replace(/\s+/g," ").slice(0,400));}
+  const t=await txt(base+(base.includes("?")?"&":"?")+q.toString()); if(t!=null) P("   odgovor ("+fmt+"): "+t.replace(/\s+/g," ").slice(0,1500));}
 async function wms(name,base,re){
   P("\n== "+name+" =="); const x=await txt(base+(base.includes("?")?"&":"?")+"SERVICE=WMS&REQUEST=GetCapabilities&VERSION=1.3.0"); if(!x) return;
   const C=layers(x); P("slojeva: "+C.L.length+" · GetFeatureInfo formati: "+C.fmts.join(", "));
   const hit=C.L.filter(l=>re.test(l.name+" "+l.title)); P("odgovarajući slojevi ("+hit.length+"):"); hit.slice(0,40).forEach(l=>P(" - "+l.name+" | "+l.title+" | queryable="+l.q+" | "+l.crs.join(" ")));
-  if(!hit.length) C.L.slice(0,40).forEach(l=>P(" · "+l.name+" | "+l.title));
+  if(!hit.length||C.L.length<10) C.L.slice(0,40).forEach(l=>P(" · "+l.name+" | "+l.title+" | queryable="+l.q));
   const [lat,lon]=document.getElementById("pt").value.split(",").map(Number);
   for(const l of hit.filter(l=>l.q==="1").slice(0,10)){P("GetFeatureInfo "+l.name); await gfi(base,l.name,lat,lon,C.fmts);}
 }
@@ -45,7 +46,7 @@ document.getElementById("go").onclick=async()=>{log=[]; const [lat,lon]=document
   await wms("Bioportal (zaštita prirode)","https://services.bioportal.hr/wms",/za[sš]ti[cć]|natura|ekolo|povs|pop\b/i);
   P("\n== EEA Natura 2000 ==");
   const q=new URLSearchParams({geometry:lon+","+lat,geometryType:"esriGeometryPoint",inSR:"4326",spatialRel:"esriSpatialRelIntersects",outFields:"SITECODE,SITENAME,SITETYPE,RELEASE_DATE,MS",returnGeometry:"false",f:"json"});
-  const t=await txt("https://bio.discomap.eea.europa.eu/arcgis/rest/services/ProtectedSites/Natura2000Sites/MapServer/2/query?"+q.toString()); if(t) P("   "+t.slice(0,500));
+  const t=await txt("https://bio.discomap.eea.europa.eu/arcgis/rest/services/ProtectedSites/Natura2000Sites/MapServer/2/query?"+q.toString()); if(t){try{const j=JSON.parse(t); P("   objekata: "+(j.features||[]).length+" · "+JSON.stringify((j.features||[]).map(f=>f.attributes)).slice(0,600));}catch(e){P("   "+t.slice(0,500));}}
   P("\nKraj testa.");};
 document.getElementById("cp").onclick=()=>{try{navigator.clipboard.writeText(out.textContent).then(()=>alert("Kopirano"))}catch(e){alert("Označi tekst ručno.")}};
 </script></body></html>
